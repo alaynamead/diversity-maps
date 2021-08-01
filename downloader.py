@@ -1,4 +1,5 @@
 import json
+import os
 import requests
 import time
 
@@ -17,8 +18,8 @@ class INatGridDownloader:
             time.sleep(self.timeout - (time.time() - self.last))
         self.last = time.time()
         resp = self.s.get(self.url, params=params)
-        if resp.status != 200:
-            print(f"warning: {desc} returned status code {resp.status}")
+        if resp.status_code != 200:
+            print(f"warning: {desc} returned status code {resp.status_code}")
         return resp.content
 
     def get(self, lat_start, lon_start, lat_end, lon_end, req_desc=None):
@@ -38,7 +39,7 @@ class INatGridDownloader:
         
         # save to file
         page_number = 1
-        with open(f"{self.target}/{req_desc}_{page_number:03}.json", "w") as f:
+        with open(f"{self.target}/{req_desc}_{page_number:03}.json", "wb") as f:
             f.write(data)
         
         # check for and load additional pages
@@ -46,7 +47,8 @@ class INatGridDownloader:
         while j["per_page"] * page_number < j["total_results"]:
             page_number += 1
             params["page"] = page_number
+            print(f"Downloading {req_desc} page {page_number}...")
             data = self._get(params, req_desc)
-            with open(f"{self.target}/{req_desc}_{page_number:03}.json", "w") as f:
+            with open(f"{self.target}/{req_desc}_{page_number:03}.json", "wb") as f:
                 f.write(data)
 
