@@ -1,0 +1,110 @@
+---
+title: "Untitled"
+author: "Alayna Mead"
+date: "8/1/2021"
+output: html_document
+---
+
+```{r setup}
+
+setwd("~/Documents/coding_for_fun/diversity-maps")
+
+library(rgdal)
+library(sp)
+library(sf)
+
+# shapefile of California
+ca <- readOGR(dsn='/home/alayna/Documents/coding_for_fun/diversity-maps/CA_shapefile')
+
+```
+
+```{r}
+
+plot(ca)
+
+#####################
+# this is a mess, don't use
+
+# modified from
+# https://gis.stackexchange.com/questions/88830/overlaying-spatial-polygon-with-grid-and-checking-in-which-grid-element-specific
+### define SpatialGrid object
+bb <- bbox(ca)
+cs <- c(10000, 10000)  # cell size 10 km
+cc <- bb[, 1] + (cs/2)  # cell offset
+cd <- ceiling(diff(t(bb))/cs)  # number of cells per direction
+grd <- GridTopology(cellcentre.offset=cc, cellsize=cs, cells.dim=cd)
+grd
+#                           x       y
+# cellcentre.offset -13854775 3835431
+# cellsize               5000    5000
+# cells.dim               231     266
+
+
+grid.df <- SpatialGridDataFrame(grd,
+                               data=data.frame(id=1:prod(cd)),
+                               proj4string=CRS(proj4string(ca)))
+summary(grid.df)
+
+library("lattice")
+spplot(grid.df, "id",
+       panel = function(...) {
+         panel.gridplot(..., border="black")
+         sp.polygons(ca)
+       })
+
+# subset - remove cells not in california
+# not working
+#over(grid.df, ca)
+
+
+# get bounding boxes
+bound <- matrix(ncol = 4, nrow = nrow(grid.df))
+colnames(bound) <- c('x_min', 'x_max', 'y_min', 'y_max')
+
+bound[,1] <- sf_coordinates(grid.df)[,1] - summary(grid.df)[[5]][1,2]/2
+bound[,2] <- coordinates(grid.df)[,1] + summary(grid.df)[[5]][1,2]/2
+bound[,3] <- coordinates(grid.df)[,2] - summary(grid.df)[[5]][2,2]/2
+bound[,4] <- coordinates(grid.df)[,2] + summary(grid.df)[[5]][2,2]/2
+
+st_transform(bound, wgs84)
+
+# quick check
+plot(ca)
+abline(v = bound[1,c(1,2)])
+abline(h = bound[1,c(3,4)])
+
+plot(ca)
+plot(ca)
+abline(v = bound[500,c(1,2)])
+abline(h = bound[500,c(3,4)])
+
+
+```
+
+```{r}
+
+# get grid of cells using sf
+
+# make grid on CA
+bb <- st_bbox(ca)
+grid <- st_make_grid(bb, cellsize=10000, what='polygons')
+
+plot(ca)
+plot(grid, add = T, col = rgb(0,0,0,0.1))
+
+# transform CRS
+wgs84 <- st_crs(4326)
+grid <- st_transform(grid, wgs84)
+
+# convert to df
+# following https://stackoverflow.com/questions/57525082/how-can-i-extract-bounding-boxes-in-a-row-wise-manner-using-r
+grid_df <- cbind(st_sf(geometry=grid), do.call(rbind,lapply(grid, st_bbox)))
+
+# cleanup
+grid_txt <- as.data.frame(grid_df)
+grid_txt <- grid_txt[,c(1:4)]
+
+# save
+write.csv(grid_txt, file='california_grid_10km.csv', row.names = F)
+
+```
