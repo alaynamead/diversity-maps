@@ -29,6 +29,15 @@ grid <- st_make_grid(bb, cellsize=10000, what='polygons')
 plot(ca)
 plot(grid, add = T, col = rgb(0,0,0,0.1))
 
+# remove cells not in california
+ca_sf <- st_as_sf(ca)
+include <- st_intersects(grid, ca_sf, sparse=F)
+grid <- grid[include]
+table(grid)
+
+plot(ca)
+plot(grid, add = T, col = rgb(0,0,0,0.1))
+
 # transform CRS
 wgs84 <- st_crs(4326)
 grid <- st_transform(grid, wgs84)
